@@ -16,7 +16,7 @@ enum safeptr_result_e
     SAFEPTR_SUCCESS = 0, // Success, pointer is valid
     SAFEPTR_ERROR_INVALID_ARGUMENT, // Invalid argument, pointer is invalid
     SAFEPTR_ERROR_ALLOC_FAIL, // Alloc failed, pointer is invalid
-    SAFEPTR_ERROR_REALLOC_FAIL // Realloc failed, but pointer is still valid
+    SAFEPTR_ERROR_SIZE_UNCHANGED // Realloc failed, but pointer is still valid
 };
 
 typedef enum safeptr_result_e safeptr_result;

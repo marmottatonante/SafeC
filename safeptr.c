@@ -34,7 +34,7 @@ safeptr_result safeptr_realloc(safeptr *p, size_t new_size)
     
     void* new_data = realloc(p->data, new_size);
     if(new_data == NULL)
-        return SAFEPTR_ERROR_REALLOC_FAIL;
+        return SAFEPTR_ERROR_SIZE_UNCHANGED;
     
     p->data = new_data;
     p->size = new_size;
