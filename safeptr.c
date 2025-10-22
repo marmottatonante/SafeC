@@ -44,6 +44,9 @@ safeptr_result safeptr_realloc(safeptr *p, size_t new_size)
 
 safeptr_result safeptr_free(safeptr* p)
 {
+    if(p == NULL)
+        return SAFEPTR_ERROR_INVALID_ARGUMENT;
+
     free(p->data);
     *p = DEFAULT_SAFEPTR;
     return SAFEPTR_SUCCESS;
