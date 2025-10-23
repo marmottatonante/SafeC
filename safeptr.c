@@ -1,20 +1,43 @@
 #include "safeptr.h"
 #include <stdlib.h>
 #include <string.h>
+#include <threads.h>
 
-static const safeptr DEFAULT_SAFEPTR =
+safeptr_result safeptr_unsafe_init(safeptr* out_ptr)
 {
-    .state = SAFEPTR_STATE_UNALLOCATED,
-    .data = NULL,
-    .size = 0,
-};
+    if(out_ptr == NULL)
+        return SAFEPTR_ERROR_INVALID_ARGUMENT;
+    
+    out_ptr->data = NULL;
+    out_ptr->size = 0;
+    out_ptr->state = SAFEPTR_STATE_UNALLOCATED;
 
-safeptr safeptr_create()
-{
-    return DEFAULT_SAFEPTR;
+    return SAFEPTR_SUCCESS;
 }
 
-safeptr_result safeptr_alloc(safeptr* p, size_t size)
+safeptr_result safeptr_unsafe_lock(safeptr* ptr);
+safeptr_result safeptr_unsafe_unlock(safeptr *ptr);
+safeptr_result safeptr_unsafe_alloc(safeptr* ptr, const size_t size);
+safeptr_result safeptr_unsafe_realloc(safeptr *ptr, const size_t new_size);
+safeptr_result safeptr_unsafe_get(const safeptr* ptr, void* out_data);
+safeptr_result safeptr_unsafe_set(safeptr *ptr, const void* data);
+safeptr_result safeptr_unsafe_free(safeptr* ptr);
+
+safeptr_result safeptr_create(safeptr* out_ptr)
+{
+    if(out_ptr == NULL)
+        return SAFEPTR_ERROR_INVALID_ARGUMENT;
+
+    out_ptr->data = NULL;
+    out_ptr->size = 0;
+    out_ptr->state = SAFEPTR_STATE_UNALLOCATED;
+    if(mtx_init(&out_ptr->lock, mtx_plain) != thrd_success)
+        return SAFEPTR_ERROR_MUTEX_INIT_FAIL;
+
+    return SAFEPTR_SUCCESS;
+}
+
+safeptr_result safeptr_alloc(safeptr* p, const size_t size)
 {
     if(p == NULL || size == 0)
         return SAFEPTR_ERROR_INVALID_ARGUMENT;
@@ -24,7 +47,7 @@ safeptr_result safeptr_alloc(safeptr* p, size_t size)
     
     void* data = malloc(size);
     if(data == NULL)
-        return SAFEPTR_ERROR_ALLOCATION_FAILED;
+        return SAFEPTR_ERROR_ALLOCATION_FAIL;
 
     p->state = SAFEPTR_STATE_UNINITIALIZED;
     p->data = data;
@@ -42,12 +65,12 @@ safeptr_result safeptr_free(safeptr* p)
         return SAFEPTR_ERROR_INVALID_STATE;
 
     free(p->data);
-    *p = DEFAULT_SAFEPTR;
+    safeptr_unsafe_init(p);
 
     return SAFEPTR_SUCCESS;
 }
 
-safeptr_result safeptr_realloc(safeptr *p, size_t new_size)
+safeptr_result safeptr_realloc(safeptr *p, const size_t new_size)
 {
     if(p == NULL)
         return SAFEPTR_ERROR_INVALID_ARGUMENT;
@@ -71,21 +94,28 @@ safeptr_result safeptr_realloc(safeptr *p, size_t new_size)
     return SAFEPTR_SUCCESS;
 }
 
-safeptr_result safeptr_copy(safeptr* p, void* data)
+safeptr_result safeptr_get(const safeptr* p, void* out_data)
 {
-    if(p == NULL || data == NULL)
+    if(p == NULL || out_data == NULL)
+        return SAFEPTR_ERROR_INVALID_ARGUMENT;
+    
+    if(p->state != SAFEPTR_STATE_INITIALIZED)
+        return SAFEPTR_ERROR_INVALID_STATE;
+    
+    out_data = p->data;
+    return SAFEPTR_SUCCESS;
+}
+
+safeptr_result safeptr_set(safeptr* p, const void* in_data)
+{
+    if(p == NULL || in_data == NULL || p->state == SAFEPTR_STATE_UNALLOCATED)
         return SAFEPTR_ERROR_INVALID_ARGUMENT;
     
     if(p->state == SAFEPTR_STATE_UNALLOCATED)
         return SAFEPTR_ERROR_INVALID_STATE;
     
-    memcpy(p->data, data, p->size);
+    memcpy(p->data, in_data, p->size);
     p->state = SAFEPTR_STATE_INITIALIZED;
-    
-    return SAFEPTR_SUCCESS;
-}
 
-bool safeptr_is_initialized(safeptr* p)
-{
-    return p != NULL && p->state == SAFEPTR_STATE_INITIALIZED;
+    return SAFEPTR_SUCCESS;
 }
