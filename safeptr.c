@@ -3,119 +3,213 @@
 #include <string.h>
 #include <threads.h>
 
-safeptr_result safeptr_unsafe_init(safeptr* out_ptr)
-{
-    if(out_ptr == NULL)
-        return SAFEPTR_ERROR_INVALID_ARGUMENT;
-    
-    out_ptr->data = NULL;
-    out_ptr->size = 0;
-    out_ptr->state = SAFEPTR_STATE_UNALLOCATED;
+/******************** MANUAL **********************/
 
-    return SAFEPTR_SUCCESS;
+safec_result safeptr_manual_lock(safeptr* ptr)
+{
+    if(ptr == NULL)
+        return SAFEC_ERROR_INVALID_ARGUMENT;
+    
+    if(ptr->state == SAFEPTR_STATE_DESTROYED)
+        return SAFEC_ERROR_INVALID_STATE;
+    
+    if(mtx_lock(&ptr->lock) != thrd_success)
+        return SAFEC_ERROR_CONCURRENCY_FAIL;
+
+    return SAFEC_SUCCESS;
 }
 
-safeptr_result safeptr_unsafe_lock(safeptr* ptr);
-safeptr_result safeptr_unsafe_unlock(safeptr *ptr);
-safeptr_result safeptr_unsafe_alloc(safeptr* ptr, const size_t size);
-safeptr_result safeptr_unsafe_realloc(safeptr *ptr, const size_t new_size);
-safeptr_result safeptr_unsafe_get(const safeptr* ptr, void* out_data);
-safeptr_result safeptr_unsafe_set(safeptr *ptr, const void* data);
-safeptr_result safeptr_unsafe_free(safeptr* ptr);
-
-safeptr_result safeptr_create(safeptr* out_ptr)
+safec_result safeptr_manual_unlock(safeptr *ptr)
 {
-    if(out_ptr == NULL)
-        return SAFEPTR_ERROR_INVALID_ARGUMENT;
-
-    out_ptr->data = NULL;
-    out_ptr->size = 0;
-    out_ptr->state = SAFEPTR_STATE_UNALLOCATED;
-    if(mtx_init(&out_ptr->lock, mtx_plain) != thrd_success)
-        return SAFEPTR_ERROR_MUTEX_INIT_FAIL;
-
-    return SAFEPTR_SUCCESS;
+    if(ptr == NULL)
+        return SAFEC_ERROR_INVALID_ARGUMENT;
+    
+    if(ptr->state == SAFEPTR_STATE_DESTROYED)
+        return SAFEC_ERROR_INVALID_STATE;
+    
+    if(mtx_unlock(&ptr->lock) != thrd_success)
+        return SAFEC_ERROR_CONCURRENCY_FAIL;
+    
+    return SAFEC_SUCCESS;
 }
 
-safeptr_result safeptr_alloc(safeptr* p, const size_t size)
+safec_result safeptr_manual_alloc(safeptr* ptr, const size_t size)
 {
-    if(p == NULL || size == 0)
-        return SAFEPTR_ERROR_INVALID_ARGUMENT;
-    
-    if(p->state != SAFEPTR_STATE_UNALLOCATED)
-        return SAFEPTR_ERROR_INVALID_STATE;
+    if(ptr == NULL || size == 0)
+        return SAFEC_ERROR_INVALID_ARGUMENT;
+
+    if(ptr->state != SAFEPTR_STATE_UNALLOCATED)
+        return SAFEC_ERROR_INVALID_STATE;
     
     void* data = malloc(size);
     if(data == NULL)
-        return SAFEPTR_ERROR_ALLOCATION_FAIL;
+        return SAFEC_ERROR_ALLOCATION_FAILED;
 
-    p->state = SAFEPTR_STATE_UNINITIALIZED;
-    p->data = data;
-    p->size = size;
-
-    return SAFEPTR_SUCCESS;
-}
-
-safeptr_result safeptr_free(safeptr* p)
-{
-    if(p == NULL)
-        return SAFEPTR_ERROR_INVALID_ARGUMENT;
-    
-    if(p->state == SAFEPTR_STATE_UNALLOCATED)
-        return SAFEPTR_ERROR_INVALID_STATE;
-
-    free(p->data);
-    safeptr_unsafe_init(p);
-
-    return SAFEPTR_SUCCESS;
-}
-
-safeptr_result safeptr_realloc(safeptr *p, const size_t new_size)
-{
-    if(p == NULL)
-        return SAFEPTR_ERROR_INVALID_ARGUMENT;
+    ptr->data = data;
+    ptr->size = size;
+    ptr->state = SAFEPTR_STATE_UNINITIALIZED;
         
-    if(p->state == SAFEPTR_STATE_UNALLOCATED)
-        return SAFEPTR_ERROR_INVALID_STATE;
+    return SAFEC_SUCCESS;
+}
+
+safec_result safeptr_manual_realloc(safeptr *ptr, const size_t new_size)
+{
+    if(ptr == NULL)
+        return SAFEC_ERROR_INVALID_ARGUMENT;
+        
+    if(ptr->state == SAFEPTR_STATE_DESTROYED)
+        return SAFEC_ERROR_INVALID_STATE;
+    
+    if(ptr->state == SAFEPTR_STATE_UNALLOCATED)
+        return SAFEC_ERROR_INVALID_STATE;
     
     if(new_size == 0)
-        return safeptr_free(p);
+        return safeptr_manual_free(ptr);
 
-    void* new_data = realloc(p->data, new_size);
+    void* new_data = realloc(ptr->data, new_size);
     if(new_data == NULL)
-        return SAFEPTR_ERROR_SIZE_UNCHANGED;
+        return SAFEC_ERROR_ALLOCATION_FAILED;
         
-    size_t old_size = p->size;
+    size_t old_size = ptr->size;
+    ptr->data = new_data;
+    ptr->size = new_size;
     if(new_size > old_size)
-        p->state = SAFEPTR_STATE_UNINITIALIZED;
-    p->data = new_data;
-    p->size = new_size;
+        ptr->state = SAFEPTR_STATE_UNINITIALIZED;
 
-    return SAFEPTR_SUCCESS;
+    return SAFEC_SUCCESS;
 }
 
-safeptr_result safeptr_get(const safeptr* p, void* out_data)
+safec_result safeptr_manual_free(safeptr* ptr)
 {
-    if(p == NULL || out_data == NULL)
-        return SAFEPTR_ERROR_INVALID_ARGUMENT;
+    if(ptr == NULL)
+        return SAFEC_ERROR_INVALID_ARGUMENT;
     
-    if(p->state != SAFEPTR_STATE_INITIALIZED)
-        return SAFEPTR_ERROR_INVALID_STATE;
+    if(ptr->state == SAFEPTR_STATE_UNALLOCATED)
+        return SAFEC_ERROR_INVALID_STATE;
     
-    out_data = p->data;
-    return SAFEPTR_SUCCESS;
+    if(ptr->state == SAFEPTR_STATE_DESTROYED)
+        return SAFEC_ERROR_INVALID_STATE;
+
+    free(ptr->data);
+    ptr->data = NULL;
+    ptr->size = 0;
+    ptr->state = SAFEPTR_STATE_UNALLOCATED;
+
+    return SAFEC_SUCCESS;
 }
 
-safeptr_result safeptr_set(safeptr* p, const void* in_data)
+safec_result safeptr_manual_read(const safeptr* ptr, void* out_data)
 {
-    if(p == NULL || in_data == NULL || p->state == SAFEPTR_STATE_UNALLOCATED)
-        return SAFEPTR_ERROR_INVALID_ARGUMENT;
+    if(ptr == NULL)
+        return SAFEC_ERROR_INVALID_ARGUMENT;
     
-    if(p->state == SAFEPTR_STATE_UNALLOCATED)
-        return SAFEPTR_ERROR_INVALID_STATE;
+    if(ptr->state == SAFEPTR_STATE_UNALLOCATED)
+        return SAFEC_ERROR_INVALID_STATE;
     
-    memcpy(p->data, in_data, p->size);
-    p->state = SAFEPTR_STATE_INITIALIZED;
+    if(ptr->state == SAFEPTR_STATE_DESTROYED)
+        return SAFEC_ERROR_INVALID_STATE;
+    
+    if(ptr->state == SAFEPTR_STATE_UNINITIALIZED)
+        return SAFEC_ERROR_INVALID_STATE;
 
-    return SAFEPTR_SUCCESS;
+    memcpy(out_data, ptr->data, ptr->size);
+    
+    return SAFEC_SUCCESS;
+}
+
+safec_result safeptr_manual_write(safeptr* ptr, const void* data)
+{
+    if(ptr == NULL)
+        return SAFEC_ERROR_INVALID_ARGUMENT;
+    
+    if(ptr->state == SAFEPTR_STATE_UNALLOCATED)
+        return SAFEC_ERROR_INVALID_STATE;
+    
+    if(ptr->state == SAFEPTR_STATE_DESTROYED)
+        return SAFEC_ERROR_INVALID_STATE;
+    
+    memcpy(ptr->data, data, ptr->size);
+    ptr->state = SAFEPTR_STATE_INITIALIZED;
+
+    return SAFEC_SUCCESS;
+}
+
+/******************** PRIMARY **********************/
+
+safec_result safeptr_create(safeptr* out_ptr)
+{
+    if(out_ptr == NULL)
+        return SAFEC_ERROR_INVALID_ARGUMENT;
+    
+    memset(out_ptr, 0, sizeof(safeptr));
+    if(mtx_init(&out_ptr->lock, mtx_plain) != thrd_success)
+        return SAFEC_ERROR_CONCURRENCY_FAIL;
+    
+    return SAFEC_SUCCESS;
+}
+
+safec_result safeptr_destroy(safeptr* ptr)
+{
+    if(ptr == NULL)
+        return SAFEC_ERROR_INVALID_ARGUMENT;
+    
+    safec_result lock_result = safeptr_manual_lock(ptr);
+    if(lock_result != SAFEC_SUCCESS)
+        return lock_result;
+
+    safec_result free_result = safeptr_manual_free(ptr);
+    safec_result unlock_result = safeptr_manual_unlock(ptr);
+    if(unlock_result != SAFEC_SUCCESS)
+        return unlock_result;
+    if(free_result != SAFEC_SUCCESS)
+        return free_result;
+
+    mtx_destroy(&ptr->lock);
+    memset(ptr, 0, sizeof(safeptr));
+    ptr->state = SAFEPTR_STATE_DESTROYED;
+
+    return SAFEC_SUCCESS;
+}
+
+safec_result safeptr_get(safeptr* ptr, void* out_data)
+{
+    safec_result lock_result = safeptr_manual_lock(ptr);
+    if(lock_result != SAFEC_SUCCESS)
+        return lock_result;
+    
+    safec_result read_result = safeptr_manual_read(ptr, out_data);
+    safec_result unlock_result = safeptr_manual_unlock(ptr);
+    if(unlock_result != SAFEC_SUCCESS)
+        return unlock_result;
+    if(read_result != SAFEC_SUCCESS)
+        return read_result;
+    
+    return SAFEC_SUCCESS;
+}
+
+safec_result safeptr_set(safeptr* ptr, const void* new_data, const size_t new_size)
+{
+    safec_result operation_result;
+
+    operation_result = safeptr_manual_lock(ptr);
+    if(operation_result != SAFEC_SUCCESS)
+        return operation_result;
+    
+    if(ptr->state == SAFEPTR_STATE_UNALLOCATED)
+        operation_result = safeptr_manual_alloc(ptr, new_size);
+    else if (ptr->size != new_size)
+        operation_result = safeptr_manual_realloc(ptr, new_size);
+    else
+        operation_result = SAFEC_SUCCESS;
+    
+    if(operation_result != SAFEC_SUCCESS)
+    {
+        safeptr_manual_unlock(ptr);
+        return operation_result;
+    }
+
+    operation_result = safeptr_manual_write(ptr, new_data);
+    safeptr_manual_unlock(ptr);
+
+    return operation_result;
 }
