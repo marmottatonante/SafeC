@@ -102,17 +102,15 @@ bool safemem_create(safemem* new_safemem, const size_t size, const bool is_manag
     if(new_safemem == NULL || size == 0) return safeerr_write(SAFEERR_INVALID_ARGUMENT);
     
     memset(new_safemem, 0, sizeof(safemem));
-    
-    void* new_mem = malloc(size);
-    if(new_mem == NULL) return safeerr_write(SAFEERR_MALLOC_FAILED);
-    
-    safesyn new_sync;
-    if(!safesyn_create(&new_sync, is_concurrent)) return free(new_mem), safeerr_keep();
+    new_safemem->is_managed = is_managed;
     
     new_safemem->size = size;
-    new_safemem->data = new_mem;
-    new_safemem->sync = new_sync;
-    new_safemem->is_managed = is_managed;
+    new_safemem->data = malloc(new_safemem->size);
+    if(new_safemem->data == NULL) return safeerr_write(SAFEERR_MALLOC_FAILED);
+    
+    if(!safesyn_create(&new_safemem->sync, is_concurrent))
+        return free(new_safemem->data), new_safemem->data = NULL, safeerr_keep();
+
     return safeerr_write(SAFEERR_SUCCESS);
 }
 
@@ -120,7 +118,9 @@ bool safemem_destroy(safemem* mem)
 {
     if(mem == NULL) return safeerr_write(SAFEERR_INVALID_ARGUMENT);
 
-    free(mem->data);
+    if(safesyn_lock(&mem->sync))
+        free(mem->data), safesyn_unlock(&mem->sync);
+
     safesyn_destroy(&mem->sync);
     memset(mem, 0, sizeof(safemem));
 
