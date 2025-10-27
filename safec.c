@@ -85,6 +85,7 @@ safcod safsyn_destroy(safsyn* sync)
     if(sync->is_enabled && sync->is_valid)
         mtx_destroy(&sync->lock);
 
+    /* Zeroes the struct, setting is_valid to 0/false. */
     memset(sync, 0, sizeof(safsyn));
 
     return SAFCOD_SUCCESS_COMPLETED;
@@ -128,8 +129,8 @@ safcod safmem_destroy(safmem* mem)
     const safcod SAFCOD_DESTROY = safsyn_destroy(&mem->sync);
     memset(mem, 0, sizeof(safmem)); 
 
-    if(safcod_err(SAFCOD_UNLOCK)) return SAFCOD_WARNING_COMPLETED_BUT_UNLOCK_FAILED;
-    if(safcod_err(SAFCOD_DESTROY)) return SAFCOD_WARNING_COMPLETED_BUT_SYNC_DESTROY_FAILED;
+    if(safcod_err(SAFCOD_UNLOCK)) return SAFCOD_WARNING_SYNC_UNLOCK_FAILED;
+    if(safcod_err(SAFCOD_DESTROY)) return SAFCOD_WARNING_SYNC_DESTROY_FAILED;
     
     return SAFCOD_SUCCESS_COMPLETED;
 }
@@ -150,7 +151,7 @@ safcod safmem_resize(safmem *mem, const size_t new_size)
     mem->size = new_size;
 
     const safcod SAFCOD_UNLOCK = safsyn_unlock(&mem->sync);
-    if(safcod_err(SAFCOD_UNLOCK)) return SAFCOD_WARNING_COMPLETED_BUT_UNLOCK_FAILED;
+    if(safcod_err(SAFCOD_UNLOCK)) return SAFCOD_WARNING_SYNC_UNLOCK_FAILED;
 
     return SAFCOD_SUCCESS_COMPLETED;
 }
@@ -166,7 +167,9 @@ safcod safmem_read(safmem* mem, void* buffer, const size_t buffer_size)
     memcpy(buffer, mem->data, least_size);
 
     const safcod SAFCOD_UNLOCK = safsyn_unlock(&mem->sync);
-    if(safcod_err(SAFCOD_UNLOCK)) return SAFCOD_WARNING_COMPLETED_BUT_UNLOCK_FAILED;
+    if(safcod_err(SAFCOD_UNLOCK)) return SAFCOD_WARNING_SYNC_UNLOCK_FAILED;
+
+    if(mem->size != buffer_size) return SAFCOD_WARNING_TRUNCATED;
 
     return SAFCOD_SUCCESS_COMPLETED;
 }
@@ -182,7 +185,9 @@ safcod safmem_write(safmem* mem, const void* buffer, const size_t buffer_size)
     memcpy(mem->data, buffer, least_size);
 
     const safcod SAFCOD_UNLOCK = safsyn_unlock(&mem->sync);
-    if(safcod_err(SAFCOD_UNLOCK)) return SAFCOD_WARNING_COMPLETED_BUT_UNLOCK_FAILED;
+    if(safcod_err(SAFCOD_UNLOCK)) return SAFCOD_WARNING_SYNC_UNLOCK_FAILED;
+
+    if(mem->size != buffer_size) return SAFCOD_WARNING_TRUNCATED;
 
     return SAFCOD_SUCCESS_COMPLETED;
 }

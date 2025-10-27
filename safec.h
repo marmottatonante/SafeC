@@ -13,22 +13,35 @@ enum safcod_e
 {
     /* internal use only */
     _SAFCOD_SUCCESS = 0,
+    /* Operation completed successfully. */
     SAFCOD_SUCCESS_COMPLETED,
+    /* Operation skipped as concurrency was disabled. */
     SAFCOD_SUCCESS_CONCURRENCY_DISABLED,
 
     /* internal use only */
     _SAFCOD_WARNING = 100,
-    SAFCOD_WARNING_COMPLETED_BUT_UNLOCK_FAILED,
-    SAFCOD_WARNING_COMPLETED_BUT_SYNC_DESTROY_FAILED,
+    /* Operation completed anyway, but a sync failed to unlock. */
+    SAFCOD_WARNING_SYNC_UNLOCK_FAILED,
+    /* Operation completed anyway, but a sync failed to destroy. */
+    SAFCOD_WARNING_SYNC_DESTROY_FAILED,
+    /* Realloc failed to resize, but memory block is still valid. */
     SAFCOD_WARNING_REALLOC_FAILED,
+    /* Buffer size was different from block size. Data was truncated. */
+    SAFCOD_WARNING_TRUNCATED,
     
     /* internal use only */
     _SAFCOD_ERROR = 200,
+    /* Argument passed to a function was invalid. */
     SAFCOD_ERROR_INVALID_ARGUMENT,
+    /* Mutex failed to initialized. */
     SAFCOD_ERROR_MUTEX_INIT_FAILED,
+    /* Mutex was in an invalid state. */
     SAFCOD_ERROR_MUTEX_IS_INVALID,
+    /* Failed to acquire lock on mutex. */
     SAFCOD_ERROR_MUTEX_LOCK_FAILED,
+    /* Failed to release lock on mutex. */
     SAFCOD_ERROR_MUTEX_UNLOCK_FAILED,
+    /* Failed to allocate the memory block. */
     SAFCOD_ERROR_MALLOC_FAILED,
 };
 
