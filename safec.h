@@ -11,36 +11,35 @@
 
 enum safcod_e
 {
-    SAFCOD_SUCCESS = 0,
+    /* internal use only */
+    _SAFCOD_SUCCESS = 0,
+    SAFCOD_SUCCESS_COMPLETED,
+    SAFCOD_SUCCESS_CONCURRENCY_DISABLED,
 
-    _SAFCOD_WARNING_START, // internal
-    SAFCOD_WARNING_MUTEX_UNLOCK_FAILED,
+    /* internal use only */
+    _SAFCOD_WARNING = 100,
+    SAFCOD_WARNING_COMPLETED_BUT_UNLOCK_FAILED,
+    SAFCOD_WARNING_COMPLETED_BUT_SYNC_DESTROY_FAILED,
     SAFCOD_WARNING_REALLOC_FAILED,
-    _SAFCOD_WARNING_END, // internal
-
-    _SAFCOD_ERROR_START, // internal
+    
+    /* internal use only */
+    _SAFCOD_ERROR = 200,
     SAFCOD_ERROR_INVALID_ARGUMENT,
     SAFCOD_ERROR_MUTEX_INIT_FAILED,
-    SAFCOD_ERROR_MUTEX_LOCK_FAILED,
     SAFCOD_ERROR_MUTEX_IS_INVALID,
+    SAFCOD_ERROR_MUTEX_LOCK_FAILED,
+    SAFCOD_ERROR_MUTEX_UNLOCK_FAILED,
     SAFCOD_ERROR_MALLOC_FAILED,
-    _SAFCOD_ERROR_END, // internal
 };
 
 typedef enum safcod_e safcod;
 
-static inline bool safcod_is_success(safcod code) {
-    return code == SAFCOD_SUCCESS;
-}
-static inline bool safcod_is_warning(safcod code) {
-    return code > _SAFCOD_WARNING_START && code < _SAFCOD_WARNING_END;
-}
-static inline bool safcod_is_error(safcod code) {
-    return code > _SAFCOD_ERROR_START && code < _SAFCOD_ERROR_END;
-}
-static inline bool safcod_is_ok(safcod code) {
-    return safcod_is_success(code) || safcod_is_warning(code);
-}
+inline bool safcod_ok(safcod code);
+inline bool safcod_warn(safcod code);
+inline bool safcod_err(safcod code);
+
+inline bool safcod_ok_or_warn(safcod code);
+inline bool safcod_err_or_warn(safcod code);
 
 /*
     safsyn (Thread safty)
@@ -75,10 +74,10 @@ struct safmem_s
 
 typedef struct safmem_s safmem;
 
-safcod safmem_create(safmem* new_safmem, const size_t size, const bool is_managed, const bool is_concurrent);
-safcod safmem_destroy(safmem* ptr);
-safcod safmem_resize(safmem *ptr, const size_t new_size);
-safcod safmem_read(safmem* ptr, void* out_data);
-safcod safmem_write(safmem* ptr, const void* new_data, const size_t new_size);
+safcod safmem_create(safmem* mem, const size_t size, const bool is_managed, const bool is_concurrent);
+safcod safmem_destroy(safmem* mem);
+safcod safmem_resize(safmem *mem, const size_t new_size);
+safcod safmem_read(safmem* mem, void* buffer, const size_t buffer_size);
+safcod safmem_write(safmem* mem, const void* buffer, const size_t buffer_size);
 
 #endif
