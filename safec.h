@@ -34,12 +34,12 @@ enum safcod_e
 
 typedef enum safcod_e safcod;
 
-inline bool safcod_ok(safcod code);
-inline bool safcod_warn(safcod code);
-inline bool safcod_err(safcod code);
+bool safcod_ok(safcod code);
+bool safcod_warn(safcod code);
+bool safcod_err(safcod code);
 
-inline bool safcod_ok_or_warn(safcod code);
-inline bool safcod_err_or_warn(safcod code);
+bool safcod_ok_or_warn(safcod code);
+bool safcod_err_or_warn(safcod code);
 
 /*
     safsyn (Thread safty)
