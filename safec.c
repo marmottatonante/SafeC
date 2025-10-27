@@ -5,23 +5,6 @@
 #include <threads.h>
 
 /*
-    safcod (Error Management)
-*/
-
-inline bool safcod_is_success(safcod code) {
-    return code == SAFCOD_SUCCESS;
-}
-inline bool safcod_is_warning(safcod code) {
-    return code > _SAFCOD_WARNING_START && code < _SAFCOD_WARNING_END;
-}
-inline bool safcod_is_error(safcod code) {
-    return code > _SAFCOD_ERROR_START && code < _SAFCOD_ERROR_END;
-}
-inline bool safcod_is_ok(safcod code) {
-    return safcod_is_success(code) || safcod_is_warning(code);
-}
-
-/*
     safsyn section
 */
 

@@ -17,7 +17,7 @@ enum safcod_e
     SAFCOD_WARNING_MUTEX_UNLOCK_FAILED,
     SAFCOD_WARNING_REALLOC_FAILED,
     _SAFCOD_WARNING_END, // internal
-    
+
     _SAFCOD_ERROR_START, // internal
     SAFCOD_ERROR_INVALID_ARGUMENT,
     SAFCOD_ERROR_MUTEX_INIT_FAILED,
@@ -29,10 +29,18 @@ enum safcod_e
 
 typedef enum safcod_e safcod;
 
-inline bool safcod_is_success(safcod code);
-inline bool safcod_is_warning(safcod code);
-inline bool safcod_is_error(safcod code);
-inline bool safcod_is_ok(safcod code);
+static inline bool safcod_is_success(safcod code) {
+    return code == SAFCOD_SUCCESS;
+}
+static inline bool safcod_is_warning(safcod code) {
+    return code > _SAFCOD_WARNING_START && code < _SAFCOD_WARNING_END;
+}
+static inline bool safcod_is_error(safcod code) {
+    return code > _SAFCOD_ERROR_START && code < _SAFCOD_ERROR_END;
+}
+static inline bool safcod_is_ok(safcod code) {
+    return safcod_is_success(code) || safcod_is_warning(code);
+}
 
 /*
     safsyn (Thread safty)
